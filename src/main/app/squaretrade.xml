@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:context="http://www.springframework.org/schema/context" xmlns:smtp="http://www.mulesoft.org/schema/mule/smtp" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:servicenow="http://www.mulesoft.org/schema/mule/servicenow" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/servicenow http://www.mulesoft.org/schema/mule/servicenow/current/mule-servicenow.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/smtp http://www.mulesoft.org/schema/mule/smtp/current/mule-smtp.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd">
+    <servicenow:config name="ServiceNow__Basic_Configuration" username="admin" password="Eaiesb123" serviceAddress="https://dev52307.service-now.com/" doc:name="ServiceNow: Basic Configuration"/>
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <smtp:gmail-connector name="Gmail" contentType="text/html" validateConnections="true" doc:name="Gmail"/>
+    <flow name="squaretradeFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/newclaim" doc:name="HTTP"/>
+        <logger message="*******************************Input_Logger_JSON:#[payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="fb05ab82-c631-406b-bc22-b4352e5cef0d">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://www.service-now.com/incident
+---
+{
+	ns0#insert: {
+		
+		category: payload.category,
+		company: payload.company,
+		description: payload.caller_id,
+		problem_id: payload.problem_id
+	}
+}]]></dw:set-payload>
+            <dw:set-session-variable variableName="StoreName"><![CDATA[%dw 1.0
+%output application/java
+---
+
+	payload.company
+]]></dw:set-session-variable>
+            <dw:set-session-variable variableName="MembershipId"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.caller_id]]></dw:set-session-variable>
+            <dw:set-session-variable variableName="productId"><![CDATA[%dw 1.0
+%output application/java
+---
+
+	payload.category
+]]></dw:set-session-variable>
+            <dw:set-session-variable variableName="problemId"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.problem_id]]></dw:set-session-variable>
+        </dw:transform-message>
+        <servicenow:invoke config-ref="ServiceNow__Basic_Configuration" type="incident||insert" doc:name="ServiceNow"/>
+        <logger message="*****************Output_logger_XML#[payload]" level="INFO" doc:name="Logger"/>
+        <json:xml-to-json-transformer doc:name="XML to JSON"/>
+        <logger message="****************Output_Logger_JSON#[payload]" level="INFO" doc:name="Logger"/>
+        <set-payload value="&lt;html&gt;    &lt;body style=&quot;font-size:13px;font-family:arial;color:#444343;font-weight:bold;&quot;&gt;       &lt;p&gt;Dear User,&lt;/p&gt;       &lt;p&gt;Please find your Claim Details below: &lt;/p&gt;       &lt;br&gt;       &lt;table cellpadding=&quot;9&quot; style=&quot;width:100%;color:white;font-family:arial;font-size:12px;font-weight: bold;&quot;&gt;          &lt;tr&gt;             &lt;td style=&quot;background-color:#1697ba;&quot;&gt;Claim Details&lt;/td&gt;          &lt;/tr&gt;       &lt;/table&gt;       &lt;br&gt;       &lt;table  cellspacing=&quot;20&quot; align=&quot;center&quot;style=&quot; table-layout:fixed; width:100%;font-family:arial;font-size:12px;border: solid 1px #1697ba;padding:15px 15px&quot;&gt;          &lt;tr&gt;             &lt;td style=&quot;width:150px;font-size:11px;color:#444343;font-weight: bold;&quot;&gt;Store Name&lt;/td&gt;             &lt;td style=&quot;border: solid 1px #E9E8E8;font-size:11px;padding:5px&quot;&gt;#[sessionVars.StoreName]&lt;/td&gt;             &lt;td style=&quot;width:150px;font-size:11px;font-weight: bold;color:#444343;&quot;&gt;Membership Id&lt;/td&gt;             &lt;td style=&quot;border: solid 1px #E9E8E8;font-size:11px;padding:5px&quot;&gt;#[sessionVars.MembershipId]&lt;/td&gt;          &lt;/tr&gt;          &lt;tr&gt;             &lt;td style=&quot;width:150px;font-size:11px;color:#444343;font-weight: bold;&quot;&gt;Product Id&lt;/td&gt;             &lt;td style=&quot;border: solid 1px #E9E8E8;font-size:11px;padding:5px;&quot;&gt;#[sessionVars.productId]&lt;/td&gt;             &lt;td style=&quot;width:150px;font-size:11px;color:#444343;font-weight: bold;&quot;&gt;Problem Id&lt;/td&gt;             &lt;td style=&quot;border: solid 1px #E9E8E8;font-size:11px;padding:5px&quot;&gt;#[sessionVars.problemId]&lt;/td&gt;          &lt;/tr&gt;          &lt;tr&gt;    &lt;td style=&quot;width:150px;font-size:11px;color:#444343;font-weight: bold;&quot;&gt;Claim Id&lt;/td&gt;             &lt;td style=&quot;border: solid 1px #E9E8E8;font-size:11px;padding:5px;&quot;&gt;#[json:insertResponse/number]&lt;/td&gt;        &lt;/table&gt;    &lt;/body&gt; &lt;/html&gt; " mimeType="text/html" doc:name="Set Payload"/>
+        <smtp:outbound-endpoint host="smtp.gmail.com" port="587" user="tm@eaiesb.com" password="Eaiesb@2018" connector-ref="Gmail" to="sudheekarreddy.donapati@eaiesb.com" from="tm@eaiesb.com" subject="Claim Details" responseTimeout="10000" doc:name="SMTP"/>
+    </flow>
+</mule>
